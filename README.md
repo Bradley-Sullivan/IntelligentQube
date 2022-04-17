@@ -64,7 +64,7 @@ The game is coded completely in C utilizing the Raylib framework.
     - If you are able to clear a round of Qubes without losing a single row (a perfect level clear), you will gain 10,000 points.
 
 ## Controls
-- Use the ARROW KEYS to move your the character.
+- Use the ARROW KEYS to move the character.
 - Press SPACE to set a Qube trap.
     - Pressing SPACE whilst a trap is set will activate the trap, clearing whatever Qube is on top of the trap.
 - Press LEFT SHIFT to detonate all trapped Advantage Qubes.
