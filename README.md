@@ -23,7 +23,7 @@ The game is coded completely in C utilizing the Raylib framework.
     - Download Source Files (Git or .zip Archive)
         - Clone the repository (Git)
             - Navigate to the directory where you want the game to reside
-            - Execute 'git clone "https://<Git Username>:<Git Auth Key>@github.com/Bradley-Sullivan/IntelligentQube.git' in CMD
+            - Execute 'git clone "https://"Git Username":"Git Auth Key"@github.com/Bradley-Sullivan/IntelligentQube.git' in CMD
         - Download and Extract .zip Archive from https://github.com/Bradley-Sullivan/IntelligentQube
     - Navigate to cloned or extracted code directory (most likely IntelligentQube/)
     - Execute '.\compile.ps1' in Windows CMD
@@ -31,7 +31,7 @@ The game is coded completely in C utilizing the Raylib framework.
     - Download Source Files (Git or .zip Archive)
         - Clone the repository (Git)
             - Navigate to the directory where you want the game to reside
-            - Execute 'git clone "https://<Git Username>:<Git Auth Key>@github.com/Bradley-Sullivan/IntelligentQube.git' in CMD
+            - Execute 'git clone "https://"Git Username":"Git Auth Key"@github.com/Bradley-Sullivan/IntelligentQube.git' in the Linux terminal
         - Download and Extract .zip Archive from https://github.com/Bradley-Sullivan/IntelligentQube
     - Navigate to cloned or extracted code directory
     - Execute 'chmod +x .\compileLinux.sh' to enable execution
