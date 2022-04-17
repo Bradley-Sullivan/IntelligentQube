@@ -80,9 +80,6 @@ int main(void) {
     SetTargetFPS(60);
 
 	loadSounds(&gs);
-	setStage(&st, &qg, &p, curStage);
-	generateQubes(&qg, &st);
-	saveGameState(&ss, &st, &qg, &p);
 	PlaySound(gs.background);
 
 	title = LoadTexture("assets/title.png");
@@ -102,11 +99,18 @@ int main(void) {
 			switch (state) {
 				case TITLE:
 					titleScreen(title, &tMenu, &state, &gs);
+                    if (state == GAME) {
+                        curStage = 1;
+                        setStage(&st, &qg, &p, curStage);
+                        generateQubes(&qg, &st);
+                        saveGameState(&ss, &st, &qg, &p);
+                    }
 					break;
 				case CONTROLS:
 					displayControls(controls, &state);
 					break;
 				case GAME:
+                    if (!IsSoundPlaying(gs.gameLoop)) PlaySound(gs.gameLoop);
 					state = updateGame(&st, &qg, &p, &ss, &gs, &t, &curStage);
 					break;
 				case PAUSE:
@@ -114,21 +118,21 @@ int main(void) {
 					break;
 				case GAMEOVER:
 					state = gameOverState(&qg, &p, &st, gameOver, &t);
+                    curStage = 1;
 					break;
 				case QUIT:
+                    CloseAudioDevice();
+                    unloadSounds(&gs);
+                    UnloadTexture(title);
+                    UnloadTexture(controls);
+                    UnloadTexture(pause);
+                    UnloadTexture(gameOver);
+                    for (int i = 0; i < 3; i++) UnloadTexture(qg.qubeTex[i]);
 					CloseWindow();
 					break;
 			}
 		EndDrawing();
 	}
-
-    unloadSounds(&gs);
-    UnloadTexture(title);
-    UnloadTexture(controls);
-    UnloadTexture(pause);
-    UnloadTexture(gameOver);
-    for (int i = 0; i < 3; i++) UnloadTexture(qg.qubeTex[i]);
-    CloseAudioDevice();
 
     return 0;
 }
@@ -159,6 +163,7 @@ void setStage(Stage* st, QubeGrid* qg, Player* p, int stage) {
 	qg->numActiveQubes = st->cols * st->activeQubes;
 	qg->numMissedQubes = 0;
 	qg->numAdvQubeSet = 0;
+    qg->numMissedLimit = st->cols;
 	qg->qubeColors[0] = BLANK;
 	qg->qubeColors[1] = LIGHTGRAY;
 	qg->qubeColors[2] = GREEN;
@@ -175,7 +180,7 @@ void setStage(Stage* st, QubeGrid* qg, Player* p, int stage) {
 	p->gRow = (p->y - st->yOffset)/ GRID_SQUARE;
 	p->gCol = (p->x - st->xOffset) / GRID_SQUARE;
 	p->trapSet = false;
-	p->score = 0;
+	if (stage == 1) p->score = 0;
 
 	qg->grid = (int**)malloc(sizeof(int*) * qg->row);
 	qg->advGrid = (int**)malloc(sizeof(int*) * qg->row);
@@ -228,6 +233,7 @@ void setGrid(QubeGrid* qg, Stage* st) {
 	qg->frontActive = qg->backActive + st->activeQubes;
 	qg->numActiveQubes = st->cols * st->activeQubes;
 	qg->numAdvQubeSet = 0;
+    qg->numMissedLimit = st->cols;
 }
 
 void saveGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
@@ -250,7 +256,8 @@ void saveGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
 	ss->q.numActiveQubes = ss->s.cols * ss->s.activeQubes;
 	ss->q.numMissedQubes = qg->numMissedQubes;
 	ss->q.numAdvQubeSet = qg->numAdvQubeSet;
-	
+	ss->q.numMissedLimit = qg->numMissedLimit;
+
 	for (int i = 0; i < 5; i++) ss->q.qubeColors[i] = qg->qubeColors[i];
 
 	for (int i = 0; i < 3; i++) ss->q.qubeTex[i] = qg->qubeTex[i];
@@ -300,6 +307,7 @@ void resetGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
 	qg->numActiveQubes = ss->q.numActiveQubes;
 	qg->numMissedQubes = ss->q.numMissedQubes;
 	qg->numAdvQubeSet = ss->q.numAdvQubeSet;
+    qg->numMissedLimit = ss->s.cols;
 
 	p->iX = ss->pl.iX;
 	p->iY = ss->pl.iY;
@@ -344,7 +352,7 @@ GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, GameSoun
 		advanceQubes(qg, st);
 		fallCheck(qg, st);
 		qg->numActiveQubes = enumerateQubes(qg);
-		if (qg->numMissedQubes >= MAX_MISSED_LIMIT) {
+		if (qg->numMissedQubes >= qg->numMissedLimit) {
 			loseRow(gs->minusRow, qg, st);
 			qg->numMissedQubes = 0;
 		}
@@ -366,10 +374,9 @@ GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, GameSoun
 	drawUI(qg, p, st, t);
 
 	if (qg->numActiveQubes <= 0) {
-        p->score += 1000 * st->rows;
 		qg->numAdvQubeSet = 0;
 		st->curLevel++;
-        if (st->rows == 23) {
+        if (st->rows == ss->s.rows) {
             PlaySound(gs->perfect);
             p->score += 10000;
         }
@@ -379,6 +386,7 @@ GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, GameSoun
 			if (st->stageNum > MAX_STAGE_LIMIT) {
 				return GAMEOVER;
 			} else {
+                p->score += 1000 * st->rows;
 				*curStage = *curStage + 1;
 				setStage(st, qg, p, *curStage);
 				PlaySound(gs->stIntro);
@@ -426,7 +434,7 @@ void generateQubes(QubeGrid* qg, Stage* st) {
 				if (i < qg->backActive) {
 					qg->grid[i][k] = 4;
 				} else if (numSet > 0) {
-					// Guarantees at least: #-col Forbidden, #-col Advantage, and #-col * #-row Normal
+                    // idfk whats with this sometimes it works, sometimes it doesnt
 					gen = (rand() % 3) + 1;
 
 					if (gen == 1) {

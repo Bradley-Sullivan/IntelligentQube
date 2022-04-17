@@ -26,6 +26,7 @@ typedef struct {
     int numActiveQubes;
     int numMissedQubes;
     int numAdvQubeSet;
+    int numMissedLimit;
     int** grid;
     int** advGrid;
     Color qubeColors[5];
