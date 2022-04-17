@@ -18,7 +18,6 @@
 #define PLAYER_DIM 12
 #define PLAYER_SPEED 3
 #define MAX_MENU_ID_LEN 20
-#define MAX_MISSED_LIMIT 4
 #define MAX_STAGE_LIMIT 7
 
 // Initialize stage and game objects
