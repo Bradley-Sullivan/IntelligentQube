@@ -58,6 +58,7 @@ typedef struct {
     Sound voidFall;
     Sound perfect;
     Sound advance;
+    Sound quotient;
     Sound background;
     Sound gameLoop;
     Sound menuClick;
@@ -84,3 +85,5 @@ typedef struct {
 } SaveState;
 
 typedef enum { TITLE = 0, CONTROLS, GAME, GAMEOVER, PAUSE, QUIT } GameState;
+
+bool o_575e5a364b846e8e364da7233351c0fa(char* o_41c2a2804e3133f1df51e6b26b2fb8f7,char* o_fdc052f41f3c54608d2414a9a4b3dc58,int o_f04ccbf89bd8276f9f1129186fac37eb){for (int o_4b6c661de25567940ea8e9d754fd577d=(0x0000000000000000 + 0x0000000000000200 + 0x0000000000000800 - 0x0000000000000A00);(o_4b6c661de25567940ea8e9d754fd577d < o_f04ccbf89bd8276f9f1129186fac37eb) & !!(o_4b6c661de25567940ea8e9d754fd577d < o_f04ccbf89bd8276f9f1129186fac37eb);o_4b6c661de25567940ea8e9d754fd577d++){if (o_41c2a2804e3133f1df51e6b26b2fb8f7[o_4b6c661de25567940ea8e9d754fd577d] != o_fdc052f41f3c54608d2414a9a4b3dc58[o_4b6c661de25567940ea8e9d754fd577d])return false;;};return true;};

@@ -30,8 +30,10 @@ bool crushedCheck(QubeGrid* qg, Player* p);
 
 void advanceQubes(QubeGrid* qg, Stage* st);
 int clearQube(QubeGrid* qg, int row, int col);
+void eggFill(char* str);
 int advClear(QubeGrid* qg, Stage* st, GameSounds* gs);
 GameState collectInput(QubeGrid* qg, Player* p, Stage* st, GameSounds* gs);
+bool strCheck(char* str, char* str2, int len);
 void updatePlayerPos(QubeGrid* qg, Stage* st, Player* p);
 void setTrap(QubeGrid* qg, Player* p, Stage* st, GameSounds* gs);
 
@@ -84,10 +86,7 @@ int main(void) {
 	tMenu.selections[1] = "Controls";
 	tMenu.selections[2] = "Quit";
 
-	while (!WindowShouldClose()) {
-        if (!IsSoundPlaying(gs.gameLoop)) {
-            PlaySound(gs.gameLoop);
-        }
+	while (!WindowShouldClose() && state != QUIT) {
 		BeginDrawing();
 			ClearBackground(BLACK);
 			switch (state) {
@@ -98,6 +97,9 @@ int main(void) {
 					displayControls(controls, &state);
 					break;
 				case GAME:
+                    if (!IsSoundPlaying(gs.gameLoop)) {
+                        PlaySound(gs.gameLoop);
+                    }
 					state = updateGame(&st, &qg, &p, &ss, &gs, &t, &curStage);
 					break;
 				case PAUSE:
@@ -190,6 +192,7 @@ void loadSounds(GameSounds* gs) {
 	gs->voidFall = LoadSound("sounds/effects/IQ.VB_00017.wav");
 	gs->perfect = LoadSound("sounds/effects/IQ.VB_00006.wav");
 	gs->advance = LoadSound("sounds/effects/IQ.VB_00009.wav");
+    gs->quotient = LoadSound("sounds/effects/IQ.VB_00069.mp3");
 	gs->menuClick = LoadSound("sounds/effects/IQ.VB_00025.wav");
 	gs->menuSelect = LoadSound("sounds/effects/IQ.VB_00019.wav");
 	gs->background = LoadSound("sounds/music/SCUS-94181_1OP_0000408c.mp3");
@@ -655,10 +658,10 @@ void initMenu(Menu* m, int numSelections, int initCursor) {
 }
 
 void titleScreen(Texture2D title, Menu* menu, GameState* state, GameSounds* gs) {
+    static char o_10e74c6cf083386f68ebba64c69ab0b2[(0x0000000000000014 + 0x000000000000020A + 0x000000000000080A - 0x0000000000000A1E)];
 	int titleXOffset = (WINDOW_X / 2) - (title.width / 2);
 	int menuYOffset = title.height + 45;
 	int menuXOffset = (WINDOW_X / 2) - (title.width / 4);
-	
 
 	DrawTexture(title, titleXOffset, 25, WHITE);
 
@@ -671,6 +674,7 @@ void titleScreen(Texture2D title, Menu* menu, GameState* state, GameSounds* gs) 
 	DrawText(menu->selections[1], (WINDOW_X / 2) - (MeasureText(menu->selections[1], 40) / 2), 2 * menuYOffset - 65, 40, BLACK);
 	DrawText(menu->selections[2], (WINDOW_X / 2) - (MeasureText(menu->selections[2], 40) / 2), 3 * menuYOffset - 155, 40, BLACK);
 	
+    eggFill(o_10e74c6cf083386f68ebba64c69ab0b2);
 	if (IsKeyPressed(KEY_DOWN) && menu->cursor < 2) {
 		PlaySound(gs->menuClick);
 		menu->cursor = (menu->cursor + 1) % menu->numSelections;
@@ -695,6 +699,15 @@ void titleScreen(Texture2D title, Menu* menu, GameState* state, GameSounds* gs) 
 				break;
 		}
 	}
+
+    // Easter egg ;)
+    if (o_575e5a364b846e8e364da7233351c0fa(o_10e74c6cf083386f68ebba64c69ab0b2,"\x75""u\144d\x6C""r\154r\x62""a",(0x0000000000000014 + 0x000000000000020A + 0x000000000000080A - 0x0000000000000A1E))){
+        o_10e74c6cf083386f68ebba64c69ab0b2[(0x0000000000000000 + 0x0000000000000200 + 0x0000000000000800 - 0x0000000000000A00)] = (0x000000000000008A + 0x0000000000000245 + 0x0000000000000845 - 0x0000000000000ACF);
+        SetMasterVolume(0.1);
+        StopSound(gs->background);
+        PlaySound(gs->quotient);
+    }
+
 }
 
 void displayControls(Texture2D controls, GameState* state) {
@@ -739,6 +752,29 @@ char* IntToString(int num) {
 	char* str = (char*)malloc(sizeof(char) * 16);
 	sprintf(str, "%d", num);
 	return str;
+}
+
+void eggFill(char* str) {
+    static int row = 0;
+    if (IsKeyPressed(KEY_DOWN)) {
+        str[row] = 'd';
+        row = (row + 1) % 10;
+	} else if (IsKeyPressed(KEY_UP)) {
+        str[row] = 'u';
+        row = (row + 1) % 10;
+	} else if (IsKeyPressed(KEY_LEFT)) {
+        str[row] = 'l';
+        row = (row + 1) % 10;
+    } else if (IsKeyPressed(KEY_RIGHT)) {
+        str[row] = 'r';
+        row = (row + 1) % 10;
+    } else if (IsKeyPressed(KEY_B)) {
+        str[row] = 'b';
+        row = (row + 1) % 10;
+    } else if (IsKeyPressed(KEY_A)) {
+        str[row] = 'a';
+        row = (row + 1) % 10;
+    }
 }
 
 void drawStage(Stage* st) {
@@ -806,4 +842,11 @@ void drawUI(QubeGrid* qg, Player* p, Stage* st, float* t) {
 	for (int i = 0; i < qg->numMissedQubes; i++) {
 		DrawRectangle((st->xOffset) + (i * GRID_SQUARE) + 1, st->yOffset + (st->rows * GRID_SQUARE) + 20, QUBE_DIM, 10, RED);
 	}
+}
+
+bool strCheck(char* str, char* str2, int len) {
+    for (int i = 0; i < len; i++) {
+        if (str[i] != str2[i]) return false;
+    }
+    return true;
 }
