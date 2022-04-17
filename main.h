@@ -57,6 +57,7 @@ typedef struct {
     Sound stIntro;
     Sound minusRow;
     Sound voidFall;
+    Sound gameOver;
     Sound perfect;
     Sound advance;
     Sound quotient;
