@@ -102,17 +102,20 @@ int main(void) {
 	GameSounds gs;
 	GameState state = TITLE;
 	Texture2D title, controls, pause, gameOver;
+	Image icon;
 	Menu tMenu;
 	int curStage = 1;
 	float t = 0.0f;
 
 	p.c = (Color) {35, 168, 255, 255};
 
-    InitWindow(WINDOW_X, WINDOW_Y, "IQ");
+    InitWindow(WINDOW_X, WINDOW_Y, "Intelligent Qube");
 	InitAudioDevice();
 	SetMasterVolume(0.15);
     SetTargetFPS(60);
 
+	icon = LoadImage("assets/icon.png");
+	SetWindowIcon(icon);
 	loadSounds(&gs);
 	PlaySoundMulti(gs.background);
 
