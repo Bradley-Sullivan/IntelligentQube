@@ -66,4 +66,4 @@ typedef struct {
     Player pl;
 } SaveState;
 
-typedef enum { TITLE = 0, GAME, GAMEOVER, PAUSE, QUIT } GameState;
+typedef enum { TITLE = 0, CONTROLS, GAME, GAMEOVER, PAUSE, QUIT } GameState;

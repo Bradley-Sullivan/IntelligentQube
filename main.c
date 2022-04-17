@@ -5,12 +5,16 @@
 #define QUBE_DIM 26
 #define GRID_SQUARE 30
 #define PLAYER_DIM 12
-#define PLAYER_SPEED 2
+#define PLAYER_SPEED 3
 #define MAX_MENU_ID_LEN 20
+#define MAX_MISSED_LIMIT 3
+#define MAX_STAGE_LIMIT 7
 
 void setStage(Stage* st, QubeGrid* qg, Player* p, int stage);
+void setGrid(QubeGrid* qg, Stage* st);
 void saveGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p);
 void resetGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p);
+GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, float* t, int* curStage);
 
 bool verifyQubeGrid(QubeGrid* qg, int row, int col, int dir);
 void generateQubes(QubeGrid* qg, Stage* st);
@@ -23,19 +27,22 @@ bool crushedCheck(QubeGrid* qg, Player* p);
 void advanceQubes(QubeGrid* qg, Stage* st);
 int clearQube(QubeGrid* qg, int row, int col);
 int advClear(QubeGrid* qg, Stage* st);
-void collectInput(QubeGrid* qg, Player* p, Stage* st, GameState* state);
+void collectInput(QubeGrid* qg, Player* p, Stage* st);
 void updatePlayerPos(QubeGrid* qg, Stage* st, Player* p);
 void setTrap(QubeGrid* qg, Player* p, Stage* st);
 
 void initMenu(Menu* m, int numSelections, int initCursor);
-void titleScreen(Texture2D title, Menu* tMenu, GameState* state);
+void titleScreen(Texture2D title, Menu* tMenu,  GameState* state);
+void displayControls(Texture2D controls, GameState* state);
 void pauseState(QubeGrid* qg, Player* p, Stage* st, GameState* state);
 void gameOverState(QubeGrid* qg, Player* p, Stage* st, GameState* state);
 
+char* IntToString(int num);
 void drawStage(Stage* st);
 void drawInSetGrid(QubeGrid* qg, Stage* st, Player* p);
 void drawQubes(QubeGrid* qg, Stage* st);
 void drawPlayer(Player* p);
+void drawUI(QubeGrid* qg, Player* p, Stage* st, float* t);
 
 int main(void) {
     Stage st;
@@ -43,18 +50,22 @@ int main(void) {
     Player p;
 	SaveState ss;
 	GameState state = TITLE;
-	Texture2D title;
+	Texture2D title, controls;
 	Menu tMenu;
+	int curStage = 1;
 	float t = 0.0f;
 
-	p.c = (Color) {35, 168, 239, 255};
+	p.c = (Color) {35, 168, 255, 255};
 
     InitWindow(WINDOW_X, WINDOW_Y, "IQ");
     SetTargetFPS(60);
-	setStage(&st, &qg, &p, 1);
+
+	setStage(&st, &qg, &p, curStage);
 	generateQubes(&qg, &st);
+	saveGameState(&ss, &st, &qg, &p);
 
 	title = LoadTexture("assets/title.png");
+	controls = LoadTexture("assets/controls.png");
 
 	initMenu(&tMenu, 3, 0);
 
@@ -69,11 +80,19 @@ int main(void) {
 				case TITLE:
 					titleScreen(title, &tMenu, &state);
 					break;
+				case CONTROLS:
+					displayControls(controls, &state);
+					break;
 				case GAME:
+					state = updateGame(&st, &qg, &p, &ss, &t, &curStage);
 					break;
 				case PAUSE:
 					break;
 				case GAMEOVER:
+					// Game over animation
+					// Write scores?
+					// back to title screen? xD
+					state = TITLE;
 					break;
 				case QUIT:
 					CloseWindow();
@@ -86,7 +105,7 @@ int main(void) {
 }
 
 void setStage(Stage* st, QubeGrid* qg, Player* p, int stage) {
-    int stages[7] = { 4, 4, 5, 5, 6, 7, 8 };
+    int stages[7] = { 4, 5, 6, 6, 7, 7, 8 };
 	st->rows = 23;
 	st->cols = stages[stage - 1];
 	st->stageNum = stage - 1;
@@ -97,7 +116,7 @@ void setStage(Stage* st, QubeGrid* qg, Player* p, int stage) {
 	st->curLevel = 0;
 	st->levelCap = 3;
 	st->colors[0] = DARKGRAY;
-	st->colors[1] = DARKBLUE;
+	st->colors[1] = (Color){0, 0, 65, 255};
 	st->colors[2] = DARKPURPLE;
 	st->colors[3] = DARKGREEN;
 	st->colors[4] = (Color){0, 75, 73, 255};
@@ -120,13 +139,14 @@ void setStage(Stage* st, QubeGrid* qg, Player* p, int stage) {
 	qg->qubeTex[1] = LoadTexture("assets/greenQb.png");
 	qg->qubeTex[2] = LoadTexture("assets/blackQb.png");
 
-	p->iX = WINDOW_X / 2;
-	p->iY = st->yOffset + ((st->rows - 2) * GRID_SQUARE);
+	p->iX = (WINDOW_X / 2) - (PLAYER_DIM / 2);
+	p->iY = st->yOffset + ((st->rows - 2) * GRID_SQUARE) - (PLAYER_DIM / 2);
 	p->x = p->iX;
 	p->y = p->iY;
 	p->gRow = (p->y - st->yOffset)/ GRID_SQUARE;
 	p->gCol = (p->x - st->xOffset) / GRID_SQUARE;
 	p->trapSet = false;
+	p->score = 0;
 
 	qg->grid = (int**)malloc(sizeof(int*) * qg->row);
 	qg->advGrid = (int**)malloc(sizeof(int*) * qg->row);
@@ -137,6 +157,14 @@ void setStage(Stage* st, QubeGrid* qg, Player* p, int stage) {
 		qg->advGrid[i] = (int*)malloc(sizeof(int) * qg->col);
 		p->pGrid[i] = (int*)malloc(sizeof(int) * qg->col);
 	}
+}
+
+void setGrid(QubeGrid* qg, Stage* st) {
+	qg->backActive = st->raisedQubes;
+	qg->frontActive = qg->backActive + st->activeQubes;
+	qg->numActiveQubes = st->cols * st->activeQubes;
+	qg->numMissedQubes = 0;
+	qg->numAdvQubeSet = 0;
 }
 
 void saveGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
@@ -183,10 +211,16 @@ void saveGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
 		ss->q.grid[i] = (int*) malloc(ss->q.col * sizeof(int));
 		ss->q.advGrid[i] = (int*) malloc(ss->q.col * sizeof(int));
 		ss->pl.pGrid[i] = (int*) malloc(ss->q.col * sizeof(int));
+		for (int k = 0; k < ss->q.col; k++) {
+			ss->q.grid[i][k] = qg->grid[i][k];
+			ss->q.advGrid[i][k] = qg->advGrid[i][k];
+			ss->pl.pGrid[i][k] = p->pGrid[i][k];
+		}
 	}
 }
 
 void resetGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
+	st->rows = ss->s.rows;
 	st->cols = ss->s.cols;
 	st->stageNum = ss->s.stageNum;
 	st->activeQubes = ss->s.activeQubes;
@@ -196,6 +230,7 @@ void resetGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
 	st->curLevel = ss->s.curLevel;
 	st->levelCap = ss->s.levelCap;
 
+	qg->row = ss->q.row;
 	qg->col = ss->q.col;
 	qg->backActive = ss->q.backActive;
 	qg->frontActive = ss->q.frontActive;
@@ -214,6 +249,16 @@ void resetGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
 	p->trapSet = ss->pl.trapSet;
 	p->c = ss->pl.c;
 
+	qg->grid = (int**)malloc(sizeof(int*) * qg->row);
+	qg->advGrid = (int**)malloc(sizeof(int*) * qg->row);
+	p->pGrid = (int**)malloc(sizeof(int*) * qg->row);
+
+	for (int i = 0; i < qg->row; i++) {
+		qg->grid[i] = (int*)malloc(sizeof(int) * qg->col);
+		qg->advGrid[i] = (int*)malloc(sizeof(int) * qg->col);
+		p->pGrid[i] = (int*)malloc(sizeof(int) * qg->col);
+	}
+
 	for (int i = 0; i < qg->row; i++) {
 		for (int k = 0; k < qg->col; k++) {
 			qg->grid[i][k] = ss->q.grid[i][k];
@@ -221,6 +266,59 @@ void resetGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
 			p->pGrid[i][k] = ss->pl.pGrid[i][k];
 		}
 	}
+}
+
+GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, float* t, int* curStage) {
+	*t = *t + GetFrameTime();
+	collectInput(qg, p, st);
+	updatePlayerPos(qg, st, p);
+
+	if (*t >= 1.75f) {
+		*t = 0.0f;
+		advanceQubes(qg, st);
+		fallCheck(qg, st);
+		if (qg->numMissedQubes >= MAX_MISSED_LIMIT) {
+			qg->numMissedQubes = 0;
+			qg->row--;
+			st->rows = qg->row - 1;
+			// Play qube fall sound effect
+		}
+	}
+
+	if (voidCheck(qg, p) == GAMEOVER) {
+		return GAMEOVER;
+	} else if (crushedCheck(qg, p)) {
+		resetGameState(ss, st, qg, p);
+	}
+
+	drawStage(st);
+	drawInSetGrid(qg, st, p);
+	drawQubes(qg, st);
+	drawPlayer(p);
+	drawUI(qg, p, st, t);
+
+	if (qg->numActiveQubes <= 0) {
+		qg->numAdvQubeSet = 0;
+		qg->numMissedQubes = 0;
+		st->curLevel++;
+		if (st->curLevel == st->levelCap) {
+			st->curLevel = 0;
+			st->stageNum++;
+			if (st->stageNum > MAX_STAGE_LIMIT) {
+				return GAMEOVER;
+			} else {
+				*curStage = *curStage + 1;
+				setStage(st, qg, p, *curStage);
+			}
+		} else {
+			st->raisedQubes -= 4;
+			setGrid(qg, st);
+		}
+		generateQubes(qg, st);
+		saveGameState(ss, st, qg, p);
+	}
+
+	return GAME;
 }
 
 bool verifyGrid(QubeGrid* qg, int row, int col, int dir) {
@@ -244,13 +342,13 @@ bool verifyGrid(QubeGrid* qg, int row, int col, int dir) {
 }
 
 void generateQubes(QubeGrid* qg, Stage* st) {
+	printf("backActive: %d\n", qg->backActive);
 	bool validGrid = false;
 	int maxF = qg->col, maxA = qg->col, maxN = qg->numActiveQubes - (maxF + maxA);
 	int gen;
 	srand(time(NULL));
 	do {
 		int numSet = qg->numActiveQubes;
-		printf("regenerating\n");
 		for (int i = 0; i < qg->row; i++) {
 			for (int k = 0; k < qg->col; k++) {
 				if (i < qg->backActive) {
@@ -282,32 +380,41 @@ void generateQubes(QubeGrid* qg, Stage* st) {
 			validGrid = verifyGrid(qg, 0, qg->col - 1, -1);
 		}
 	} while (!validGrid);
-	printf("found valid grid\n");
 }
 
 Qube translateGrid(QubeGrid* qg, Stage* st, int row, int col) {
 	Qube q;
 	q.x = st->xOffset + (col * GRID_SQUARE) + ((GRID_SQUARE - QUBE_DIM) / 2);
 	q.y = st->yOffset + (row * GRID_SQUARE) + ((GRID_SQUARE - QUBE_DIM) / 2);
-	if (qg->grid[row][col] > 0 && qg->grid[row][col] < 4) q.tex = qg->qubeTex[qg->grid[row][col] - 1];
-	else q.c = qg->qubeColors[qg->grid[row][col]];
+	if (qg->grid[row][col] > 0 && qg->grid[row][col] < 4) {
+		q.tex = qg->qubeTex[qg->grid[row][col] - 1];
+	} else if (qg->grid[row][col] == 4) {
+		q.c = qg->qubeColors[4];
+	} else {
+		q.c = qg->qubeColors[0];
+	}
 
 	return q;
 }
 
 int fallCheck(QubeGrid* qg, Stage* st) {
-	int numFell = 0;
+	int numFell = 0, numMissed = 0;
 	for (int k = 0; k < qg->col; k++) {
-		if (qg->grid[qg->row - 1][k] != 3) {
+		if (qg->grid[qg->row - 1][k] > 0) {
 			numFell++;
+			if (qg->grid[qg->row - 1][k] != 3) {
+				numMissed++;
+			}
 		}
 		qg->grid[qg->row - 1][k] = 0;
 	}
+	qg->numActiveQubes -= numFell;
+	qg->numMissedQubes += numMissed;
 	return numFell;
 }
 
 GameState voidCheck(QubeGrid* qg, Player* p) {
-	if (p->gRow > qg->row - 1) {
+	if (p->gRow == qg->row - 1) {
 		return GAMEOVER;
 	} else {
 		return GAME;
@@ -324,7 +431,7 @@ bool crushedCheck(QubeGrid* qg, Player* p) {
 void advanceQubes(QubeGrid* qg, Stage* st) {
 	for (int i = qg->row - 1; i >= qg->backActive; i--) {
 		for (int k = 0; k < qg->col; k++) {
-			if (qg->grid[i - 1][k] != 4 && qg->grid[i - 1][k] != 0) {
+			if (i > 0 && qg->grid[i - 1][k] != 4 && qg->grid[i - 1][k] != 0) {
 				qg->grid[i][k] = qg->grid[i - 1][k];
 				qg->grid[i - 1][k] = 0;
 
@@ -343,7 +450,7 @@ int clearQube(QubeGrid* qg, int row, int col) {
 }
 
 int advClear(QubeGrid* qg, Stage* st) {
-	int numCleared = 0;
+	int numCleared = 0, retClear = 0;
 	bool advCleared[qg->row][qg->col];
 	
 	for (int i = 0; i < qg->row; i++) {
@@ -357,8 +464,9 @@ int advClear(QubeGrid* qg, Stage* st) {
 			if (qg->advGrid[i][k] == 1 && !advCleared[i][k]) {
 				int aRow = (i - 1) > 0 ? (i - 1) : 0;
 				int aCol = (k - 1) > 0 ? (k - 1) : 0;
+				int cLim = (k == 0) ? 2 : aCol + 3;
 				for (int j = aRow; j < aRow + 3; j++) {
-					for (int l = aCol; l < aCol + 3; l++) {
+					for (int l = aCol; l < cLim; l++) {
 						if (j < qg->row - 1 && l < qg->col) {
 							int cVal = clearQube(qg, j, l);
 							if (cVal != 0 && cVal != 4) numCleared++;
@@ -372,16 +480,18 @@ int advClear(QubeGrid* qg, Stage* st) {
 						}
 					}
 				}
+				qg->advGrid[i][k] = 0;
+				qg->numActiveQubes -= numCleared;
+				retClear += numCleared;
+				numCleared = 0;
 			}
-			qg->advGrid[i][k] = 0;
-			qg->numActiveQubes -= numCleared;
 		}
 	}
 
-	return numCleared;
+	return retClear;
 }
 
-void collectInput(QubeGrid* qg, Player* p, Stage* st, GameState* state) {
+void collectInput(QubeGrid* qg, Player* p, Stage* st) {
 	if (IsKeyDown(KEY_LEFT) && p->x > st->xOffset) {
 		p->x -= PLAYER_SPEED;
 	}
@@ -406,7 +516,7 @@ void collectInput(QubeGrid* qg, Player* p, Stage* st, GameState* state) {
 	}
 
 	if (IsKeyDown(KEY_LEFT_CONTROL)) {
-		// advance qubes
+		advanceQubes(qg, st);
 	}
 
 	if (IsKeyPressed(KEY_LEFT_SHIFT)) {
@@ -485,13 +595,28 @@ void titleScreen(Texture2D title, Menu* menu, GameState* state) {
 				*state = GAME;
 				break;
 			case 1:
-				// display control state
+				*state = CONTROLS;
 				break;
 			case 2:
 				*state = QUIT;
 				break;
+			default:
+				break;
 		}
 	}
+}
+
+void displayControls(Texture2D controls, GameState* state) {
+	DrawTexture(controls, 0, 0, RAYWHITE);
+	if(GetKeyPressed() != 0) {
+		*state = TITLE;
+	}
+}
+
+char* IntToString(int num) {
+	char* str = (char*)malloc(sizeof(char) * 16);
+	sprintf(str, "%d", num);
+	return str;
 }
 
 void drawStage(Stage* st) {
@@ -525,7 +650,7 @@ void drawInSetGrid(QubeGrid* qg, Stage* st, Player* p) {
 
 void drawQubes(QubeGrid* qg, Stage* st) {
 	Qube draw;
-	for (int i = 0; i < qg->row; i++) {
+	for (int i = 0; i < qg->row - 1; i++) {
 		for (int k = 0; k < qg->col; k++) {
 			draw = translateGrid(qg, st, i, k);
 			if (qg->grid[i][k] == 0 || qg->grid[i][k] == 4) DrawRectangle(draw.x, draw.y, QUBE_DIM, QUBE_DIM, draw.c);
@@ -536,4 +661,25 @@ void drawQubes(QubeGrid* qg, Stage* st) {
 
 void drawPlayer(Player* p) {
 	DrawRectangle(p->x, p->y, PLAYER_DIM, PLAYER_DIM, p->c);
+}
+
+void drawUI(QubeGrid* qg, Player* p, Stage* st, float* t) {
+	char* str;
+	str = IntToString(p->score);
+	DrawText("Score: ", 10, 10, 30, RAYWHITE);
+	DrawText(str, 10 + MeasureText("Score: ", 30), 10, 30, RAYWHITE);
+	DrawText("Qubes Left: ", 10, 50, 30, RAYWHITE);
+	str = IntToString(qg->numActiveQubes);
+	DrawText(str, 10 + MeasureText("Qubes Left: ", 30), 50, 30, RAYWHITE);
+	DrawText("Stage", WINDOW_X - MeasureText("Stage", 30) - 10, 10, 30, RAYWHITE);
+	str = IntToString(st->stageNum + 1);
+	DrawText(str, WINDOW_X - (MeasureText("Stage", 30) / 2) - 10, 40, 40, RAYWHITE);
+	DrawText("Level", WINDOW_X - MeasureText("Level", 30) - 10, 80, 30, RAYWHITE);
+	str = IntToString(st->curLevel + 1);
+	DrawText(str, WINDOW_X - (MeasureText("Level", 30) / 2) - 10, 110, 40, RAYWHITE);
+
+	DrawRectangle(st->xOffset, st->yOffset + (st->rows * GRID_SQUARE) + 5, st->cols * GRID_SQUARE, 8, RAYWHITE);
+	DrawRectangle(st->xOffset + 2, st->yOffset + (st->rows * GRID_SQUARE) + 7, (*t / 1.75) * (st->cols * GRID_SQUARE - 4), 4, BLACK);
+
+
 }
