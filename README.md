@@ -74,4 +74,5 @@ The game is coded completely in C utilizing the Raylib framework.
 
 ## Game Preview/Comparison
 ![alt text](https://github.com/Bradley-Sullivan/IntelligentQube/blob/main/blob/IQ_Gameplay.png?raw=true)
+
 ![alt text](https://github.com/Bradley-Sullivan/IntelligentQube/blob/main/blob/IQ_Clone_Gameplay.png?raw=true)
