@@ -5,7 +5,7 @@
 ## Description
 This game is a simple 2D clone of one of my favorite games from the PS1 era, Intelligent Qube. 
 IQ is a puzzle game for the PlayStation 1 that was released in 1997 developed by G-Artists and published by Sony Computer Entertainment.
-
+![alt text](https://github.com/Bradley-Sullivan/IntelligentQube/blob/main/blob/Intelligent_Qube.jpg?raw=true)
 This program was written for the 2022 UNR 24-hr Hackathon competition.
 
 The game is coded completely in C utilizing the Raylib framework.
