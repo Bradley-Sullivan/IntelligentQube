@@ -3,7 +3,8 @@
 - Bradley Sullivan
 - bradleysullivan@nevada.unr.edu
 ## Description
-This game is a simple 2-D clone of one of my favorite games from the PS1 era, Intelligent Qube.
+This game is a simple 2D clone of one of my favorite games from the PS1 era, Intelligent Qube. 
+IQ is a puzzle game for the PlayStation 1 that was released in 1997 developed by G-Artists and published by Sony Computer Entertainment.
 
 This program was written for the 2022 UNR 24-hr Hackathon competition.
 
