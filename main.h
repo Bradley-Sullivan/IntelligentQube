@@ -55,9 +55,15 @@ typedef struct {
 } Qube;
 
 typedef struct {
+    int numSelections;
+    int cursor;
+    char** selections;
+} Menu;
+
+typedef struct {
     Stage s;
     QubeGrid q;
     Player pl;
 } SaveState;
 
-typedef enum { TITLE = 0, GAME, GAMEOVER, PAUSE } GameState;
+typedef enum { TITLE = 0, GAME, GAMEOVER, PAUSE, QUIT } GameState;
