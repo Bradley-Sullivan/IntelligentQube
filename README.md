@@ -71,3 +71,7 @@ The game is coded completely in C utilizing the Raylib framework.
 - Press LEFT CONTROL to rapidly advance remaining Qubes.
 - Press P to pause the game.
 - Press ESCAPE to exit the game entirely and return to desktop.
+
+## Game Preview/Comparison
+![alt text](https://github.com/Bradley-Sullivan/IntelligentQube/blob/main/blob/IQ_Gameplay.png?raw=true)
+![alt text](https://github.com/Bradley-Sullivan/IntelligentQube/blob/main/blob/IQ_Clone_Gameplay.png?raw=true)
