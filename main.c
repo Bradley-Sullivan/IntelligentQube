@@ -356,8 +356,13 @@ GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, GameSoun
 	drawUI(qg, p, st, t);
 
 	if (qg->numActiveQubes <= 0) {
+        p->score += 1000 * st->rows;
 		qg->numAdvQubeSet = 0;
 		st->curLevel++;
+        if (st->rows == 23) {
+            PlaySound(gs->perfect);
+            p->score += 10000;
+        }
 		if (st->curLevel == st->levelCap) {
 			st->curLevel = 0;
 			st->stageNum++;
