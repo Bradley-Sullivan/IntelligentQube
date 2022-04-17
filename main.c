@@ -1,3 +1,14 @@
+/**
+ * @file main.c
+ * @author Bradley Sullivan (bradleysullivan@nevada.unr.edu)
+ * @brief 2022 UNR Hackathon Project
+ * @version 0.1
+ * @date 2022-04-17
+ * 
+ * @copyright Copyright (c) 2022
+ * 
+ */
+
 #include "main.h"
 
 #define WINDOW_X 800
