@@ -7,32 +7,35 @@
 #define PLAYER_DIM 12
 #define PLAYER_SPEED 3
 #define MAX_MENU_ID_LEN 20
-#define MAX_MISSED_LIMIT 3
+#define MAX_MISSED_LIMIT 4
 #define MAX_STAGE_LIMIT 7
 
 void setStage(Stage* st, QubeGrid* qg, Player* p, int stage);
+void loadSounds(GameSounds* gs);
 void setGrid(QubeGrid* qg, Stage* st);
 void saveGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p);
 void resetGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p);
-GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, float* t, int* curStage);
+GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, GameSounds* gs, float* t, int* curStage);
 
 bool verifyQubeGrid(QubeGrid* qg, int row, int col, int dir);
 void generateQubes(QubeGrid* qg, Stage* st);
 Qube translateGrid(QubeGrid* qg, Stage* st, int row, int col);
 
+void loseRow(Sound s, QubeGrid* qg, Stage* st);
 int fallCheck(QubeGrid* qg, Stage* st);
+int enumerateQubes(QubeGrid* qg);
 GameState voidCheck(QubeGrid* qg, Player* p);
 bool crushedCheck(QubeGrid* qg, Player* p);
 
 void advanceQubes(QubeGrid* qg, Stage* st);
 int clearQube(QubeGrid* qg, int row, int col);
-int advClear(QubeGrid* qg, Stage* st);
-void collectInput(QubeGrid* qg, Player* p, Stage* st);
+int advClear(QubeGrid* qg, Stage* st, GameSounds* gs);
+void collectInput(QubeGrid* qg, Player* p, Stage* st, GameSounds* gs);
 void updatePlayerPos(QubeGrid* qg, Stage* st, Player* p);
-void setTrap(QubeGrid* qg, Player* p, Stage* st);
+void setTrap(QubeGrid* qg, Player* p, Stage* st, GameSounds* gs);
 
 void initMenu(Menu* m, int numSelections, int initCursor);
-void titleScreen(Texture2D title, Menu* tMenu,  GameState* state);
+void titleScreen(Texture2D title, Menu* tMenu,  GameState* state, GameSounds* gs);
 void displayControls(Texture2D controls, GameState* state);
 void pauseState(QubeGrid* qg, Player* p, Stage* st, GameState* state);
 void gameOverState(QubeGrid* qg, Player* p, Stage* st, GameState* state);
@@ -49,6 +52,7 @@ int main(void) {
     QubeGrid qg;
     Player p;
 	SaveState ss;
+	GameSounds gs;
 	GameState state = TITLE;
 	Texture2D title, controls;
 	Menu tMenu;
@@ -58,11 +62,15 @@ int main(void) {
 	p.c = (Color) {35, 168, 255, 255};
 
     InitWindow(WINDOW_X, WINDOW_Y, "IQ");
+	InitAudioDevice();
+	SetMasterVolume(0.15);
     SetTargetFPS(60);
 
+	loadSounds(&gs);
 	setStage(&st, &qg, &p, curStage);
 	generateQubes(&qg, &st);
 	saveGameState(&ss, &st, &qg, &p);
+	PlaySound(gs.background);
 
 	title = LoadTexture("assets/title.png");
 	controls = LoadTexture("assets/controls.png");
@@ -78,13 +86,13 @@ int main(void) {
 			ClearBackground(BLACK);
 			switch (state) {
 				case TITLE:
-					titleScreen(title, &tMenu, &state);
+					titleScreen(title, &tMenu, &state, &gs);
 					break;
 				case CONTROLS:
 					displayControls(controls, &state);
 					break;
 				case GAME:
-					state = updateGame(&st, &qg, &p, &ss, &t, &curStage);
+					state = updateGame(&st, &qg, &p, &ss, &gs, &t, &curStage);
 					break;
 				case PAUSE:
 					break;
@@ -159,11 +167,27 @@ void setStage(Stage* st, QubeGrid* qg, Player* p, int stage) {
 	}
 }
 
+void loadSounds(GameSounds* gs) {
+	gs->crushed = LoadSound("sounds/effects/IQ.VB_00007.wav");
+	gs->tSet = LoadSound("sounds/effects/IQ.VB_00011.wav");
+	gs->tAct = LoadSound("sounds/effects/IQ.VB_00005.wav");
+	gs->tMiss = LoadSound("sounds/effects/IQ.VB_00003.wav");
+	gs->tAdv = LoadSound("sounds/effects/IQ.VB_00004.wav");
+	gs->stIntro = LoadSound("sounds/effects/IQ.VB_00012.wav");
+	gs->minusRow = LoadSound("sounds/effects/IQ.VB_00016.wav");
+	gs->voidFall = LoadSound("sounds/effects/IQ.VB_00017.wav");
+	gs->perfect = LoadSound("sounds/effects/IQ.VB_00006.wav");
+	gs->advance = LoadSound("sounds/effects/IQ.VB_00009.wav");
+	gs->menuClick = LoadSound("sounds/effects/IQ.VB_00025.wav");
+	gs->menuSelect = LoadSound("sounds/effects/IQ.VB_00019.wav");
+	gs->background = LoadSound("sounds/music/SCUS-94181_1OP_0000408c.mp3");
+	gs->gameLoop = LoadSound("sounds/music/loop.mp3");
+}
+
 void setGrid(QubeGrid* qg, Stage* st) {
 	qg->backActive = st->raisedQubes;
 	qg->frontActive = qg->backActive + st->activeQubes;
 	qg->numActiveQubes = st->cols * st->activeQubes;
-	qg->numMissedQubes = 0;
 	qg->numAdvQubeSet = 0;
 }
 
@@ -268,26 +292,31 @@ void resetGameState(SaveState* ss, Stage* st, QubeGrid* qg, Player* p) {
 	}
 }
 
-GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, float* t, int* curStage) {
+GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, GameSounds* gs, float* t, int* curStage) {
 	*t = *t + GetFrameTime();
-	collectInput(qg, p, st);
+	collectInput(qg, p, st, gs);
 	updatePlayerPos(qg, st, p);
 
-	if (*t >= 1.75f) {
+	if (*t >= 2.0f) {
 		*t = 0.0f;
+		PlaySound(gs->advance);
 		advanceQubes(qg, st);
 		fallCheck(qg, st);
+		qg->numActiveQubes = enumerateQubes(qg);
 		if (qg->numMissedQubes >= MAX_MISSED_LIMIT) {
+			loseRow(gs->minusRow, qg, st);
 			qg->numMissedQubes = 0;
-			qg->row--;
-			st->rows = qg->row - 1;
 			// Play qube fall sound effect
 		}
+		//StopSound(gs->advance);
+		StopSound(gs->minusRow);
 	}
 
 	if (voidCheck(qg, p) == GAMEOVER) {
+		PlaySound(gs->voidFall);
 		return GAMEOVER;
 	} else if (crushedCheck(qg, p)) {
+		PlaySound(gs->crushed);
 		resetGameState(ss, st, qg, p);
 	}
 
@@ -299,7 +328,6 @@ GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, float* t
 
 	if (qg->numActiveQubes <= 0) {
 		qg->numAdvQubeSet = 0;
-		qg->numMissedQubes = 0;
 		st->curLevel++;
 		if (st->curLevel == st->levelCap) {
 			st->curLevel = 0;
@@ -309,6 +337,7 @@ GameState updateGame(Stage* st, QubeGrid* qg, Player* p, SaveState* ss, float* t
 			} else {
 				*curStage = *curStage + 1;
 				setStage(st, qg, p, *curStage);
+				PlaySound(gs->stIntro);
 			}
 		} else {
 			st->raisedQubes -= 4;
@@ -397,6 +426,12 @@ Qube translateGrid(QubeGrid* qg, Stage* st, int row, int col) {
 	return q;
 }
 
+void loseRow(Sound s, QubeGrid* qg, Stage* st) {
+	PlaySound(s);
+	qg->row--;
+	st->rows = qg->row - 1;
+}
+
 int fallCheck(QubeGrid* qg, Stage* st) {
 	int numFell = 0, numMissed = 0;
 	for (int k = 0; k < qg->col; k++) {
@@ -411,6 +446,18 @@ int fallCheck(QubeGrid* qg, Stage* st) {
 	qg->numActiveQubes -= numFell;
 	qg->numMissedQubes += numMissed;
 	return numFell;
+}
+
+int enumerateQubes(QubeGrid* qg) {
+	int count = 0;
+	for (int i = 0; i < qg->row; i++) {
+		for (int k = 0; k < qg->col; k++) {
+			if (qg->grid[i][k] > 0 && qg->grid[i][k] != 4) {
+				count++;
+			}
+		}
+	}
+	return count;
 }
 
 GameState voidCheck(QubeGrid* qg, Player* p) {
@@ -434,7 +481,6 @@ void advanceQubes(QubeGrid* qg, Stage* st) {
 			if (i > 0 && qg->grid[i - 1][k] != 4 && qg->grid[i - 1][k] != 0) {
 				qg->grid[i][k] = qg->grid[i - 1][k];
 				qg->grid[i - 1][k] = 0;
-
 			}
 		}
 	}
@@ -449,10 +495,10 @@ int clearQube(QubeGrid* qg, int row, int col) {
 	}
 }
 
-int advClear(QubeGrid* qg, Stage* st) {
+int advClear(QubeGrid* qg, Stage* st, GameSounds* gs) {
 	int numCleared = 0, retClear = 0;
 	bool advCleared[qg->row][qg->col];
-	
+	// Sound minusRow = LoadSound("sounds/effects/IQ.VB_00016.wav");
 	for (int i = 0; i < qg->row; i++) {
 		for (int k = 0; k < qg->col; k++) {
 			advCleared[i][k] = false;
@@ -474,8 +520,7 @@ int advClear(QubeGrid* qg, Stage* st) {
 								advCleared[j][l] = true;
 								qg->advGrid[j][l] = 1;
 							} else if (cVal == 3) {
-								qg->row--;
-								st->rows = qg->row - 1;
+								loseRow(gs->minusRow, qg, st);
 							}
 						}
 					}
@@ -491,7 +536,7 @@ int advClear(QubeGrid* qg, Stage* st) {
 	return retClear;
 }
 
-void collectInput(QubeGrid* qg, Player* p, Stage* st) {
+void collectInput(QubeGrid* qg, Player* p, Stage* st, GameSounds* gs) {
 	if (IsKeyDown(KEY_LEFT) && p->x > st->xOffset) {
 		p->x -= PLAYER_SPEED;
 	}
@@ -512,7 +557,7 @@ void collectInput(QubeGrid* qg, Player* p, Stage* st) {
 
 	if (IsKeyPressed(KEY_SPACE)) {
 		// set trap
-		setTrap(qg, p, st);
+		setTrap(qg, p, st, gs);
 	}
 
 	if (IsKeyDown(KEY_LEFT_CONTROL)) {
@@ -521,7 +566,8 @@ void collectInput(QubeGrid* qg, Player* p, Stage* st) {
 
 	if (IsKeyPressed(KEY_LEFT_SHIFT)) {
 		// adv clear
-		p->score += advClear(qg, st) * 300;
+		PlaySound(gs->tAdv);
+		p->score += advClear(qg, st, gs) * 300;
 	}
 }
 
@@ -536,15 +582,21 @@ void updatePlayerPos(QubeGrid* qg, Stage* st, Player* p) {
 	p->pGrid[p->gRow][p->gCol] = 1;
 }
 
-void setTrap(QubeGrid* qg, Player* p, Stage* st) {
+void setTrap(QubeGrid* qg, Player* p, Stage* st, GameSounds* gs) {
+	// Sound set = LoadSound("sounds/effects/IQ.VB_00013.wav");
+	// Sound activate = LoadSound("sounds/effects/IQ.VB_00011.wav");
+	// Sound minusRow = LoadSound("sound/effects/IQ.VB_00012.wav");
 	if (!p->trapSet) {
+		PlaySound(gs->tSet);
 		p->trapSet = true;
 		p->tRow = p->gRow;
 		p->tCol = p->gCol;
 	} else {
+		PlaySound(gs->tAct);
 		int clearVal = clearQube(qg, p->tRow, p->tCol);
 		p->trapSet = false;
 		if (clearVal != 0) qg->numActiveQubes--;
+		else PlaySound(gs->tMiss);
 		if (clearVal == 1) {
 			p->score += 100;
 		} else if (clearVal == 2) {
@@ -553,8 +605,7 @@ void setTrap(QubeGrid* qg, Player* p, Stage* st) {
 			qg->numAdvQubeSet++;
 		} else if (clearVal == 3) {
 			p->score += 100;
-			qg->row--;
-			st->rows = qg->row - 1;
+			loseRow(gs->minusRow, qg, st);
 		}
 	}
 }
@@ -568,7 +619,7 @@ void initMenu(Menu* m, int numSelections, int initCursor) {
 	}
 }
 
-void titleScreen(Texture2D title, Menu* menu, GameState* state) {
+void titleScreen(Texture2D title, Menu* menu, GameState* state, GameSounds* gs) {
 	int titleXOffset = (WINDOW_X / 2) - (title.width / 2);
 	int menuYOffset = title.height + 45;
 	int menuXOffset = (WINDOW_X / 2) - (title.width / 4);
@@ -586,12 +637,17 @@ void titleScreen(Texture2D title, Menu* menu, GameState* state) {
 	DrawText(menu->selections[2], (WINDOW_X / 2) - (MeasureText(menu->selections[2], 40) / 2), 3 * menuYOffset - 155, 40, BLACK);
 	
 	if (IsKeyPressed(KEY_DOWN) && menu->cursor < 2) {
+		PlaySound(gs->menuClick);
 		menu->cursor = (menu->cursor + 1) % menu->numSelections;
 	} else if (IsKeyPressed(KEY_UP) && menu->cursor > 0) {
+		PlaySound(gs->menuClick);
 		menu->cursor = (menu->cursor - 1) % menu->numSelections;
 	} else if (IsKeyPressed(KEY_ENTER)) {
+		PlaySound(gs->menuSelect);
 		switch (menu->cursor) {
 			case 0:
+				StopSound(gs->background);
+				PlaySound(gs->gameLoop);
 				*state = GAME;
 				break;
 			case 1:
@@ -620,10 +676,11 @@ char* IntToString(int num) {
 }
 
 void drawStage(Stage* st) {
+	srand(time(NULL));
 	Color stageShadow = st->colors[st->stageNum];
-	stageShadow.r -= 50;
-	stageShadow.g -= 50;
-	stageShadow.b -= 50;
+	stageShadow.r -= 20 + (rand() % 47);
+	stageShadow.g -= 20 + (rand() % 47);
+	stageShadow.b -= 20 + (rand() % 47);
 	DrawRectangle(st->xOffset - 10, st->yOffset - 10, st->cols * GRID_SQUARE, st->rows * GRID_SQUARE, stageShadow);
 	DrawRectangle(st->xOffset, st->yOffset, st->cols * GRID_SQUARE, st->rows * GRID_SQUARE, st->colors[st->stageNum]);
 	for (int i = 0; i <= st->rows; i++) DrawLine(st->xOffset, st->yOffset + (i * GRID_SQUARE), st->xOffset + (st->cols * GRID_SQUARE), st->yOffset + (i * GRID_SQUARE), RAYWHITE);
@@ -679,7 +736,9 @@ void drawUI(QubeGrid* qg, Player* p, Stage* st, float* t) {
 	DrawText(str, WINDOW_X - (MeasureText("Level", 30) / 2) - 10, 110, 40, RAYWHITE);
 
 	DrawRectangle(st->xOffset, st->yOffset + (st->rows * GRID_SQUARE) + 5, st->cols * GRID_SQUARE, 8, RAYWHITE);
-	DrawRectangle(st->xOffset + 2, st->yOffset + (st->rows * GRID_SQUARE) + 7, (*t / 1.75) * (st->cols * GRID_SQUARE - 4), 4, BLACK);
+	DrawRectangle(st->xOffset + 2, st->yOffset + (st->rows * GRID_SQUARE) + 7, (*t / 2.0) * (st->cols * GRID_SQUARE - 4), 4, BLACK);
 
-
+	for (int i = 0; i < qg->numMissedQubes; i++) {
+		DrawRectangle((st->xOffset) + (i * GRID_SQUARE) + 1, st->yOffset + (st->rows * GRID_SQUARE) + 20, QUBE_DIM, 10, RED);
+	}
 }

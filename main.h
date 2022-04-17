@@ -48,6 +48,23 @@ typedef struct {
 } Player;
 
 typedef struct {
+    Sound crushed;
+    Sound tSet;
+    Sound tAct;
+    Sound tMiss;
+    Sound tAdv;
+    Sound stIntro;
+    Sound minusRow;
+    Sound voidFall;
+    Sound perfect;
+    Sound advance;
+    Sound background;
+    Sound gameLoop;
+    Sound menuClick;
+    Sound menuSelect;
+} GameSounds;
+
+typedef struct {
     int x;
     int y;
     Color c;
