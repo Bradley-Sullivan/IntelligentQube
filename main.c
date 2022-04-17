@@ -33,7 +33,6 @@ int clearQube(QubeGrid* qg, int row, int col);
 void eggFill(char* str);
 int advClear(QubeGrid* qg, Stage* st, GameSounds* gs);
 GameState collectInput(QubeGrid* qg, Player* p, Stage* st, GameSounds* gs);
-bool strCheck(char* str, char* str2, int len);
 void updatePlayerPos(QubeGrid* qg, Stage* st, Player* p);
 void setTrap(QubeGrid* qg, Player* p, Stage* st, GameSounds* gs);
 
@@ -97,9 +96,6 @@ int main(void) {
 					displayControls(controls, &state);
 					break;
 				case GAME:
-                    if (!IsSoundPlaying(gs.gameLoop)) {
-                        PlaySound(gs.gameLoop);
-                    }
 					state = updateGame(&st, &qg, &p, &ss, &gs, &t, &curStage);
 					break;
 				case PAUSE:
@@ -196,7 +192,7 @@ void loadSounds(GameSounds* gs) {
 	gs->menuClick = LoadSound("sounds/effects/IQ.VB_00025.wav");
 	gs->menuSelect = LoadSound("sounds/effects/IQ.VB_00019.wav");
 	gs->background = LoadSound("sounds/music/SCUS-94181_1OP_0000408c.mp3");
-	gs->gameLoop = LoadSound("sounds/music/loop.mp3");
+	gs->gameLoop = LoadSound("sounds/music/gameLoop.mp3");
 }
 
 void unloadSounds(GameSounds* gs) {
@@ -605,7 +601,7 @@ GameState collectInput(QubeGrid* qg, Player* p, Stage* st, GameSounds* gs) {
 	}
 
 	if (IsKeyPressed(KEY_LEFT_SHIFT)) {
-		PlaySound(gs->tAdv);
+		if (qg->numAdvQubeSet > 0) PlaySound(gs->tAdv);
 		p->score += advClear(qg, st, gs) * 300;
 	}
 
@@ -782,6 +778,7 @@ void drawStage(Stage* st) {
 	stageShadow.r -= 48;
 	stageShadow.g -= 33;
 	stageShadow.b -= 90;
+    stageShadow.a = 100;
 	DrawRectangle(st->xOffset - 10, st->yOffset - 10, st->cols * GRID_SQUARE, st->rows * GRID_SQUARE, stageShadow);
 	DrawRectangle(st->xOffset, st->yOffset, st->cols * GRID_SQUARE, st->rows * GRID_SQUARE, st->colors[st->stageNum]);
 	for (int i = 0; i <= st->rows; i++) DrawLine(st->xOffset, st->yOffset + (i * GRID_SQUARE), st->xOffset + (st->cols * GRID_SQUARE), st->yOffset + (i * GRID_SQUARE), RAYWHITE);
@@ -822,6 +819,7 @@ void drawPlayer(Player* p) {
 }
 
 void drawUI(QubeGrid* qg, Player* p, Stage* st, float* t) {
+    
 	char* str;
 	str = IntToString(p->score);
 	DrawText("Score: ", 10, 10, 30, RAYWHITE);
@@ -842,11 +840,4 @@ void drawUI(QubeGrid* qg, Player* p, Stage* st, float* t) {
 	for (int i = 0; i < qg->numMissedQubes; i++) {
 		DrawRectangle((st->xOffset) + (i * GRID_SQUARE) + 1, st->yOffset + (st->rows * GRID_SQUARE) + 20, QUBE_DIM, 10, RED);
 	}
-}
-
-bool strCheck(char* str, char* str2, int len) {
-    for (int i = 0; i < len; i++) {
-        if (str[i] != str2[i]) return false;
-    }
-    return true;
 }
